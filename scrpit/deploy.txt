@@ -1,0 +1,131 @@
+一、服务和组件
+#
+1.1 基础组件
+MySQL           5.7     数据库
+Redis           7.0     缓存
+Nacos           2.0.3   配置与服务注册中心
+RabbitMQ            9.1.4   消息队列
+Elasticsearch           日志索引
+
+#
+1.2 业务服务
+mlab-gateway           网关
+mlab-system                系统管理服务
+mms-auth               认证服务
+mlab-flowable          工作流服务
+mlab-ml-click          多算法建模模块
+mlab-ml-click-consumer 点击式建模计算层
+mlab-ml-metrics        指标计算模块
+mlab-ml-predict        模型推理服务
+mlab-ml-service        后台守护线程
+mlab-ml-schedule           调度器服务
+mlab-ml-star-speed         星速建模模块
+mlab-mf
+mlab-message           消息服务
+mlab-gen
+mlab-file              文件上传
+mlab-em
+mlab-dag
+mlab-ms
+
+
+
+二、环境依赖
+Kubernetes      ≥ 1.24
+Helm        ≥ 3.10
+系统        ≥ centos 7.9
+资源建议    ≥ 8核CPU 16GB内存
+
+
+三、镜像管理
+3.1 导入示例
+docker load < mlab-gateway.tar
+3.2 推送镜像
+docker tag mlab/mlab-gateway:1.0 xxx.xxx.x.x/mlab/mlab-gateway:1.0
+docker push xxx.xxx.x.x/mlab/mlab-gateway:1.0
+
+
+六、部署步骤
+6.1 创建命名空间
+kubectl create namespace mlab
+
+6.2 部署基础组件
+示例:
+cd helm/rabbitmq
+helm install rabbitmq  -n mlab ./
+
+6.2 微服务部署顺序建议
+说明:启动没有顺序要求
+1.mlab-gateway
+2.mlab-system
+3.mms-auth
+4.mlab-file
+5.mlab-flowable
+6.mlab-message
+7.mlab-ml-service
+8.mlab-gen
+9.mlab-em
+10.mlab-dag
+11.mlab-ms
+12.mlab-ml-star-speed
+13.mlab-ml-service
+14.mlab-ml-metrics
+15.mlab-ml-predict
+16.mlab-ml-click
+17.mlab-ml-click-consumer
+
+6.3 部署微服务
+示例:
+cd helm/mlab-system
+helm install mlab-system  -n mlab ./
+
+6.4 values.yaml示例
+说明: configMap配置java服务读取nacos信息和配置文件
+
+global:
+  repository: 192.168.161.44
+
+nameOverride: "mlab-system"
+fullnameOverride: "mlab-system"
+
+replicaCount: 1
+
+image:
+  name: mlab/mlab-system
+  tag: "1.0"
+  pullPolicy: Always
+  port: 9201
+
+service:
+  type: ClusterIP
+  port: 9201
+
+#存储
+pvc:
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 10Gi
+    limits:
+      storage: 10Gi
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+#   memory: 128Mi
+
+configMap:
+  nacos:
+    host: 192.168.161.44
+    port: 8848
+    user: nacos
+    password: nacos
+  profiles:
+    active: dev
