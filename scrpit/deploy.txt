@@ -1,1 +1,133 @@
-已删除
+#cat redis.yml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis-pv
+  namespace: app-server
+  labels:
+    pv: redis-pv
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Recycle
+  storageClassName: redis
+  nfs:
+    path: /nfs/data/redis-pv
+    server: 10.10.0.202
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: app-server
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: redis
+  selector:
+    matchLabels:
+      pv: redis-pv
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: redis-config
+  namespace: app-server
+  labels:
+    app: redis
+data:
+  redis.conf: |-
+    dir /data
+    port 6379
+    bind 0.0.0.0
+    appendonly yes
+    protected-mode no
+    requirepass oYwraOFJVZrEjDrW
+    pidfile /data/redis-6379.pid
+    maxmemory 107374182
+    notify-keyspace-events "Ex"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: app-server
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7.0
+        command:
+          - "sh"
+          - "-c"
+          - "redis-server /usr/local/redis/redis.conf"
+        ports:
+        - containerPort: 6379
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1024Mi
+          requests:
+            cpu: 500m
+            memory: 1024Mi
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 300
+          timeoutSeconds: 1
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        volumeMounts:
+        - name: config
+          mountPath:  /usr/local/redis/redis.conf
+          subPath: redis.conf
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+      - name: config
+        configMap:
+          name: redis-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: app-server
+spec:
+  type: NodePort
+  ports:
+    - port: 6379
+      protocol: TCP
+      targetPort: 6379
+      nodePort: 30087
+  selector:
+    app: redis
+
+
