@@ -14,3 +14,36 @@ cat conf.d/my_custom.cnf
 wait_timeout=28800
 interactive_timeout=28800
 skip-name-resolve
+
+
+cat elasticsearch.sh
+#!/bin/bash
+
+docker run -d \
+    --name elasticsearch \
+    --privileged \
+    --restart always \
+    -p 9200:9200 \
+    -p 9300:9300 \
+    -e "discovery.type=single-node" \
+    -e "ES_JAVA_OPTS=-Xms2g -Xmx2g" \
+    -v /data/elk/elasticsearch/data:/usr/share/elasticsearch/data \
+    -v /data/elk/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml \
+    elasticsearch:8.5.0
+
+
+cat elasticsearch.yml
+cluster.name: "docker-cluster"
+network.host: 0.0.0.0
+xpack.security.enabled: true
+xpack.security.http.ssl:
+  enabled: false
+xpack.security.transport.ssl:
+  enabled: false
+  #xpack.security.authc.api_key:
+  # enabled: true
+ingest.geoip.downloader.enabled: false
+xpack.security.enrollment.enabled: true
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+http.host: 0.0.0.0
